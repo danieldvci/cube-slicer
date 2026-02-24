@@ -1,0 +1,24 @@
+{
+  "name": "Cube Slicer",
+  "short_name": "CubeSlicer",
+  "description": "Geometric Subdivision Engine — Slice a cube with diagonal planes and explore the resulting pieces in 3D",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#2A9D8F",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
