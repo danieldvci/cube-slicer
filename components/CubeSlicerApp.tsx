@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { Canvas, useFrame, useThree, ThreeEvent } from "@react-three/fiber";
-import { OrbitControls, Text, Environment, PerspectiveCamera } from "@react-three/drei";
+import { OrbitControls, Environment, PerspectiveCamera, Html } from "@react-three/drei";
 import * as THREE from "three";
 import {
   CUBE_VERTICES,
@@ -33,18 +33,21 @@ function VertexLabel({ name, position }: { name: string; position: THREE.Vector3
         <sphereGeometry args={[0.06, 16, 16]} />
         <meshBasicMaterial color="#ffffff" opacity={0.6} transparent />
       </mesh>
-      <Text
-        position={[0, 0.18, 0]}
-        fontSize={0.22}
-        color="#ffffff"
-        anchorX="center"
-        anchorY="middle"
-        outlineWidth={0.02}
-        outlineColor="#000000"
-        depthOffset={-1}
+      <Html
+        center
+        distanceFactor={8}
+        style={{
+          color: "#fff",
+          fontSize: "14px",
+          fontWeight: "bold",
+          fontFamily: "monospace",
+          textShadow: "0 0 4px #000, 0 0 8px #000",
+          pointerEvents: "none",
+          userSelect: "none",
+        }}
       >
         {name}
-      </Text>
+      </Html>
     </group>
   );
 }

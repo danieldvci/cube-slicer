@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 const CACHE_NAME = "cube-slicer-v1";
-const PRECACHE_URLS = ["/", "/offline"];
+const PRECACHE_URLS = ["/"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
