@@ -4,7 +4,8 @@
       "Bash(tail:*)",
       "Bash(netstat:*)",
       "Bash(cd:*)",
-      "Bash(npx:*)"
+      "Bash(npx:*)",
+      "Bash(cd /c/Cursor/gitHubRepository/cube-slicer-1 && npm run build 2>&1)"
     ]
   }
 }

@@ -5,7 +5,7 @@
  */
 
 import * as THREE from "three";
-import { CSG } from "./csg";
+import { CSG, CSGPolygon } from "./csg";
 
 // ─── Cube Vertices ───────────────────────────────────────────
 // Cube from (-1,-1,-1) to (1,1,1)
@@ -49,6 +49,189 @@ export const CUTTING_PLANES: CuttingPlane[] = [
 export interface SlicedPiece {
   geometry: THREE.BufferGeometry;
   centroid: THREE.Vector3;
+  polygons: CSGPolygon[];
+}
+
+// ─── Piece Metrics ──────────────────────────────────────────
+
+export interface PieceMetrics {
+  vertexCount: number;
+  edgeCount: number;
+  faceCount: number;
+  edgeLengths: number[];
+  faceAreas: number[];
+  surfaceArea: number;
+  volume: number;
+  boundingBox: { x: number; y: number; z: number };
+}
+
+function roundN(v: number, dp: number): number {
+  const f = Math.pow(10, dp);
+  return Math.round(v * f) / f;
+}
+
+function vecKey(v: THREE.Vector3): string {
+  return `${roundN(v.x, 4)},${roundN(v.y, 4)},${roundN(v.z, 4)}`;
+}
+
+export function computePieceMetrics(polygons: CSGPolygon[]): PieceMetrics {
+  // Unique vertices
+  const vertMap = new Map<string, THREE.Vector3>();
+  for (const poly of polygons) {
+    for (const v of poly.vertices) {
+      const k = vecKey(v.pos);
+      if (!vertMap.has(k)) vertMap.set(k, v.pos.clone());
+    }
+  }
+
+  // Unique edges
+  const edgeSet = new Set<string>();
+  for (const poly of polygons) {
+    const verts = poly.vertices;
+    for (let i = 0; i < verts.length; i++) {
+      const j = (i + 1) % verts.length;
+      const ka = vecKey(verts[i].pos);
+      const kb = vecKey(verts[j].pos);
+      const ek = ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
+      edgeSet.add(ek);
+    }
+  }
+
+  // Edge lengths
+  const edgeLengths: number[] = [];
+  for (const ek of Array.from(edgeSet)) {
+    const [ka, kb] = ek.split("|");
+    const a = vertMap.get(ka)!;
+    const b = vertMap.get(kb)!;
+    edgeLengths.push(roundN(a.distanceTo(b), 4));
+  }
+  edgeLengths.sort((a, b) => a - b);
+
+  // True faces: cluster co-planar polygons
+  const PLANE_TOL = 0.01;
+  const faceClusters: CSGPolygon[][] = [];
+
+  for (const poly of polygons) {
+    const n = poly.plane.normal.clone().normalize();
+    const d = poly.plane.w;
+    let found = false;
+    for (const cluster of faceClusters) {
+      const cn = cluster[0].plane.normal.clone().normalize();
+      const cd = cluster[0].plane.w;
+      if (
+        Math.abs(n.dot(cn) - 1) < PLANE_TOL &&
+        Math.abs(d - cd) < PLANE_TOL
+      ) {
+        cluster.push(poly);
+        found = true;
+        break;
+      }
+    }
+    if (!found) faceClusters.push([poly]);
+  }
+
+  // Face areas
+  function polyArea(poly: CSGPolygon): number {
+    let area = 0;
+    const verts = poly.vertices;
+    for (let i = 2; i < verts.length; i++) {
+      const ab = new THREE.Vector3().subVectors(verts[i - 1].pos, verts[0].pos);
+      const ac = new THREE.Vector3().subVectors(verts[i].pos, verts[0].pos);
+      area += 0.5 * new THREE.Vector3().crossVectors(ab, ac).length();
+    }
+    return area;
+  }
+
+  const faceAreas = faceClusters.map((cluster) => {
+    let area = 0;
+    for (const poly of cluster) area += polyArea(poly);
+    return roundN(area, 4);
+  });
+  faceAreas.sort((a, b) => a - b);
+
+  const surfaceArea = roundN(faceAreas.reduce((s, a) => s + a, 0), 4);
+
+  // Volume via divergence theorem
+  let volume = 0;
+  for (const poly of polygons) {
+    const verts = poly.vertices;
+    for (let i = 2; i < verts.length; i++) {
+      const v0 = verts[0].pos;
+      const v1 = verts[i - 1].pos;
+      const v2 = verts[i].pos;
+      volume += v0.dot(new THREE.Vector3().crossVectors(v1, v2));
+    }
+  }
+  volume = roundN(Math.abs(volume) / 6, 4);
+
+  // Bounding box
+  let minX = Infinity, minY = Infinity, minZ = Infinity;
+  let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+  for (const v of Array.from(vertMap.values())) {
+    if (v.x < minX) minX = v.x;
+    if (v.y < minY) minY = v.y;
+    if (v.z < minZ) minZ = v.z;
+    if (v.x > maxX) maxX = v.x;
+    if (v.y > maxY) maxY = v.y;
+    if (v.z > maxZ) maxZ = v.z;
+  }
+
+  return {
+    vertexCount: vertMap.size,
+    edgeCount: edgeSet.size,
+    faceCount: faceClusters.length,
+    edgeLengths,
+    faceAreas,
+    surfaceArea,
+    volume,
+    boundingBox: {
+      x: roundN(maxX - minX, 4),
+      y: roundN(maxY - minY, 4),
+      z: roundN(maxZ - minZ, 4),
+    },
+  };
+}
+
+// ─── Congruence Groups ──────────────────────────────────────
+
+export function computeCongruenceGroups(pieces: SlicedPiece[]): number[] {
+  const signatures: string[] = [];
+
+  for (const piece of pieces) {
+    // Unique vertices
+    const vertMap = new Map<string, THREE.Vector3>();
+    for (const poly of piece.polygons) {
+      for (const v of poly.vertices) {
+        const k = vecKey(v.pos);
+        if (!vertMap.has(k)) vertMap.set(k, v.pos.clone());
+      }
+    }
+    const pts = Array.from(vertMap.values());
+
+    // All pairwise distances, sorted
+    const dists: number[] = [];
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        dists.push(roundN(pts[i].distanceTo(pts[j]), 3));
+      }
+    }
+    dists.sort((a, b) => a - b);
+    signatures.push(dists.join(","));
+  }
+
+  // Assign group IDs
+  const sigToGroup = new Map<string, number>();
+  const groupIds: number[] = [];
+  let nextGroup = 0;
+
+  for (const sig of signatures) {
+    if (!sigToGroup.has(sig)) {
+      sigToGroup.set(sig, nextGroup++);
+    }
+    groupIds.push(sigToGroup.get(sig)!);
+  }
+
+  return groupIds;
 }
 
 // ─── Slicing Function ────────────────────────────────────────
@@ -69,7 +252,7 @@ export function sliceCube(activePlaneIds: number[]): SlicedPiece[] {
   if (activePlaneIds.length === 0) {
     const geom = new THREE.BoxGeometry(2, 2, 2);
     geom.computeVertexNormals();
-    return [{ geometry: geom, centroid: new THREE.Vector3(0, 0, 0) }];
+    return [{ geometry: geom, centroid: new THREE.Vector3(0, 0, 0), polygons: [] }];
   }
 
   let pieces: CSG[] = [createCubeCSG()];
@@ -101,7 +284,7 @@ export function sliceCube(activePlaneIds: number[]): SlicedPiece[] {
       }
       centroid.divideScalar(pos.count || 1);
 
-      return { geometry: geom, centroid };
+      return { geometry: geom, centroid, polygons: p.polygons };
     });
 }
 

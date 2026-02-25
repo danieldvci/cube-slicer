@@ -9,9 +9,13 @@ import {
   CUTTING_PLANES,
   PIECE_COLORS,
   sliceCube,
+  computePieceMetrics,
+  computeCongruenceGroups,
   type SlicedPiece,
   type CuttingPlane,
+  type PieceMetrics,
 } from "@/lib/geometry";
+import type { CSGPolygon } from "@/lib/csg";
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -20,6 +24,8 @@ interface PieceMeshData {
   centroid: THREE.Vector3;
   color: string;
   index: number;
+  polygons: CSGPolygon[];
+  groupId: number;
 }
 
 // ─── Vertex Label (pure canvas sprite, no font files) ────────
@@ -67,6 +73,7 @@ function PieceMesh({
   anySelected,
   explosion,
   showWireframe,
+  showPieceNumbers,
   globalOpacity,
   onClick,
   onPointerOver,
@@ -78,6 +85,7 @@ function PieceMesh({
   anySelected: boolean;
   explosion: number;
   showWireframe: boolean;
+  showPieceNumbers: boolean;
   globalOpacity: number;
   onClick: () => void;
   onPointerOver: () => void;
@@ -85,10 +93,42 @@ function PieceMesh({
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const edgeRef = useRef<THREE.LineSegments>(null);
+  const spriteRef = useRef<THREE.Sprite>(null);
   const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
   const targetPos = useRef(new THREE.Vector3());
   const targetScale = useRef(1);
   const targetOpacity = useRef(1);
+
+  // Label offset: centroid direction pushed outward
+  const labelOffset = useMemo(() => {
+    const dir = data.centroid.clone();
+    const len = dir.length();
+    if (len > 0.001) dir.normalize();
+    return data.centroid.clone().add(dir.multiplyScalar(0.15));
+  }, [data.centroid]);
+
+  // Piece number texture
+  const numberTexture = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext("2d")!;
+    ctx.beginPath();
+    ctx.arc(64, 64, 48, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(10, 10, 15, 0.75)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 56px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(data.index + 1), 64, 68);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    return tex;
+  }, [data.index]);
 
   useFrame(() => {
     if (!meshRef.current) return;
@@ -135,6 +175,13 @@ function PieceMesh({
     // Update edge visibility
     if (edgeRef.current) {
       edgeRef.current.visible = meshRef.current.visible && !showWireframe;
+    }
+
+    // Update sprite label position and visibility
+    if (spriteRef.current) {
+      spriteRef.current.position.copy(targetPos.current).add(labelOffset);
+      spriteRef.current.visible = showPieceNumbers && finalOpacity > 0.02;
+      (spriteRef.current.material as THREE.SpriteMaterial).opacity = finalOpacity;
     }
   });
 
@@ -184,6 +231,9 @@ function PieceMesh({
           <lineBasicMaterial color="#000000" opacity={0.15} transparent />
         </lineSegments>
       </mesh>
+      <sprite ref={spriteRef} position={labelOffset} scale={[0.35, 0.35, 0.35]}>
+        <spriteMaterial map={numberTexture} transparent depthTest={false} />
+      </sprite>
     </group>
   );
 }
@@ -259,6 +309,7 @@ function Scene({
   explosion,
   showWireframe,
   showPlanes,
+  showPieceNumbers,
   activePlanes,
   globalOpacity,
   onTogglePiece,
@@ -271,6 +322,7 @@ function Scene({
   explosion: number;
   showWireframe: boolean;
   showPlanes: boolean;
+  showPieceNumbers: boolean;
   activePlanes: number[];
   globalOpacity: number;
   onTogglePiece: (index: number) => void;
@@ -339,6 +391,7 @@ function Scene({
           anySelected={selectedPieces.length > 0}
           explosion={explosion}
           showWireframe={showWireframe}
+          showPieceNumbers={showPieceNumbers}
           globalOpacity={globalOpacity}
           onClick={() => onTogglePiece(piece.index)}
           onPointerOver={() => onHoverPiece(piece.index)}
@@ -422,6 +475,21 @@ function PlaneButton({
   );
 }
 
+function MetricBox({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex-1 px-2 py-1.5 rounded bg-white/[0.04] text-center">
+      <div className="text-[10px] uppercase tracking-wider opacity-40 mb-0.5">
+        {label}
+      </div>
+      <div className="text-[12px] text-white/80 font-medium tabular-nums">
+        {typeof value === "number" && !Number.isInteger(value)
+          ? value.toFixed(4)
+          : value}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main App ────────────────────────────────────────────────
 
 export default function CubeSlicerApp() {
@@ -431,20 +499,64 @@ export default function CubeSlicerApp() {
   const [hoveredPiece, setHoveredPiece] = useState<number | null>(null);
   const [takeOutMode, setTakeOutMode] = useState(false);
   const [showWireframe, setShowWireframe] = useState(false);
-  const [showPlanes, setShowPlanes] = useState(true);
+  const [showPlanes, setShowPlanes] = useState(false);
+  const [showPieceNumbers, setShowPieceNumbers] = useState(true);
   const [globalOpacity, setGlobalOpacity] = useState(1);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Compute pieces (pure, memoized)
   const slicedPieces: PieceMeshData[] = useMemo(() => {
     const raw = sliceCube(activePlanes);
+    const groupIds = computeCongruenceGroups(raw);
     return raw.map((piece, i) => ({
       geometry: piece.geometry,
       centroid: piece.centroid,
       color: PIECE_COLORS[i % PIECE_COLORS.length],
       index: i,
+      polygons: piece.polygons,
+      groupId: groupIds[i],
     }));
   }, [activePlanes]);
+
+  // Piece inspector metrics (only when 1 piece selected)
+  const inspectedMetrics: PieceMetrics | null = useMemo(() => {
+    if (selectedPieces.length !== 1) return null;
+    const piece = slicedPieces[selectedPieces[0]];
+    if (!piece || piece.polygons.length === 0) return null;
+    return computePieceMetrics(piece.polygons);
+  }, [selectedPieces, slicedPieces]);
+
+  // Group info: groupId -> { indices, label }
+  const groupInfo = useMemo(() => {
+    const map = new Map<number, number[]>();
+    for (const p of slicedPieces) {
+      const arr = map.get(p.groupId) || [];
+      arr.push(p.index);
+      map.set(p.groupId, arr);
+    }
+    const labels = new Map<number, string>();
+    let labelIdx = 0;
+    // Sort group IDs so labels are stable
+    const sortedIds = Array.from(map.keys()).sort((a, b) => a - b);
+    for (const gid of sortedIds) {
+      labels.set(gid, String.fromCharCode(65 + labelIdx));
+      labelIdx++;
+    }
+    return { map, labels };
+  }, [slicedPieces]);
+
+  const toggleGroupSelection = useCallback(
+    (groupId: number) => {
+      const indices = groupInfo.map.get(groupId) || [];
+      const allSelected = indices.every((i) => selectedPieces.includes(i));
+      if (allSelected) {
+        setSelectedPieces((prev) => prev.filter((i) => !indices.includes(i)));
+      } else {
+        setSelectedPieces((prev) => Array.from(new Set([...prev, ...indices])));
+      }
+    },
+    [groupInfo, selectedPieces]
+  );
 
   const togglePlane = useCallback((id: number) => {
     setActivePlanes((prev) =>
@@ -664,11 +776,75 @@ export default function CubeSlicerApp() {
                         className="w-2.5 h-2.5 rounded-sm shrink-0"
                         style={{ backgroundColor: piece.color }}
                       />
-                      Piece {piece.index + 1}
+                      <span className="flex-1 text-left">
+                        Piece {piece.index + 1}
+                      </span>
                     </button>
                   ))}
                 </div>
               </section>
+            )}
+
+            {/* Piece Inspector */}
+            {inspectedMetrics && (
+              <CollapsibleSection title="Piece Inspector">
+                <div className="space-y-3 text-[11px]">
+                  {/* Counts row */}
+                  <div className="flex gap-2">
+                    <MetricBox label="Vertices" value={inspectedMetrics.vertexCount} />
+                    <MetricBox label="Edges" value={inspectedMetrics.edgeCount} />
+                    <MetricBox label="Faces" value={inspectedMetrics.faceCount} />
+                  </div>
+                  {/* Surface area & volume */}
+                  <div className="flex gap-2">
+                    <MetricBox label="Surface Area" value={inspectedMetrics.surfaceArea} />
+                    <MetricBox label="Volume" value={inspectedMetrics.volume} />
+                  </div>
+                  {/* Bounding box */}
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider opacity-50 mb-1">
+                      Bounding Box
+                    </div>
+                    <div className="flex gap-2">
+                      <MetricBox label="W" value={inspectedMetrics.boundingBox.x} />
+                      <MetricBox label="H" value={inspectedMetrics.boundingBox.y} />
+                      <MetricBox label="D" value={inspectedMetrics.boundingBox.z} />
+                    </div>
+                  </div>
+                  {/* Edge lengths */}
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider opacity-50 mb-1">
+                      Edge Lengths ({inspectedMetrics.edgeLengths.length})
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {inspectedMetrics.edgeLengths.map((l, i) => (
+                        <span
+                          key={i}
+                          className="px-1.5 py-0.5 rounded bg-white/[0.05] text-white/60 text-[10px] tabular-nums"
+                        >
+                          {l.toFixed(4)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Face areas */}
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider opacity-50 mb-1">
+                      Face Areas ({inspectedMetrics.faceAreas.length})
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {inspectedMetrics.faceAreas.map((a, i) => (
+                        <span
+                          key={i}
+                          className="px-1.5 py-0.5 rounded bg-white/[0.05] text-white/60 text-[10px] tabular-nums"
+                        >
+                          {a.toFixed(4)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </CollapsibleSection>
             )}
 
             {/* View Options */}
@@ -693,6 +869,16 @@ export default function CubeSlicerApp() {
                   }`}
                 >
                   {showPlanes ? "✓ " : "  "}Show Planes
+                </button>
+                <button
+                  onClick={() => setShowPieceNumbers(!showPieceNumbers)}
+                  className={`w-full text-left px-3 py-2 rounded-md text-[12px] transition-all ${
+                    showPieceNumbers
+                      ? "bg-white/[0.07] text-white"
+                      : "bg-white/[0.02] text-white/35 hover:text-white/50"
+                  }`}
+                >
+                  {showPieceNumbers ? "✓ " : "  "}Piece Numbers
                 </button>
               </div>
             </CollapsibleSection>
@@ -724,6 +910,7 @@ export default function CubeSlicerApp() {
               explosion={explosion}
               showWireframe={showWireframe}
               showPlanes={showPlanes}
+              showPieceNumbers={showPieceNumbers}
               activePlanes={activePlanes}
               globalOpacity={globalOpacity}
               onTogglePiece={togglePieceSelection}
