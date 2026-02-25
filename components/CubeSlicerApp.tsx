@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { Canvas, useFrame, useThree, ThreeEvent } from "@react-three/fiber";
+import { Canvas, useFrame, ThreeEvent } from "@react-three/fiber";
 import { OrbitControls, Environment, PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
 import {
@@ -56,6 +56,8 @@ function VertexLabel({ name, position }: { name: string; position: THREE.Vector3
     tex.needsUpdate = true;
     return tex;
   }, [name]);
+
+  useEffect(() => () => { texture.dispose(); }, [texture]);
 
   return (
     <sprite position={labelPos} scale={[0.45, 0.45, 0.45]}>
@@ -129,6 +131,8 @@ function PieceMesh({
     return tex;
   }, [data.index]);
 
+  useEffect(() => () => { numberTexture.dispose(); }, [numberTexture]);
+
   useFrame(() => {
     if (!meshRef.current) return;
 
@@ -187,6 +191,8 @@ function PieceMesh({
   const edgesGeom = useMemo(() => {
     return new THREE.EdgesGeometry(data.geometry, 15);
   }, [data.geometry]);
+
+  useEffect(() => () => { edgesGeom.dispose(); }, [edgesGeom]);
 
   return (
     <group>
@@ -555,6 +561,7 @@ export default function CubeSlicerApp() {
       prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
     );
     setSelectedPieces([]);
+    setExpandedPieces(new Set());
     setTakeOutMode(false);
   }, []);
 
@@ -563,6 +570,7 @@ export default function CubeSlicerApp() {
       prev.length === 6 ? [] : [0, 1, 2, 3, 4, 5]
     );
     setSelectedPieces([]);
+    setExpandedPieces(new Set());
     setTakeOutMode(false);
   }, []);
 
