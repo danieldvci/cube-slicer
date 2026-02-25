@@ -63,9 +63,8 @@ function VertexLabel({ name, position }: { name: string; position: THREE.Vector3
 function PieceMesh({
   data,
   isSelected,
-  isInspecting,
   isTakingOut,
-  otherSelected,
+  anySelected,
   explosion,
   showWireframe,
   globalOpacity,
@@ -75,9 +74,8 @@ function PieceMesh({
 }: {
   data: PieceMeshData;
   isSelected: boolean;
-  isInspecting: boolean;
   isTakingOut: boolean;
-  otherSelected: boolean;
+  anySelected: boolean;
   explosion: number;
   showWireframe: boolean;
   globalOpacity: number;
@@ -87,6 +85,7 @@ function PieceMesh({
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const edgeRef = useRef<THREE.LineSegments>(null);
+  const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
   const targetPos = useRef(new THREE.Vector3());
   const targetScale = useRef(1);
   const targetOpacity = useRef(1);
@@ -103,19 +102,9 @@ function PieceMesh({
     let scale = 1;
     let opacity = 1;
 
-    if (isInspecting && isSelected) {
-      pos = new THREE.Vector3(0, 0, 0);
-      scale = 1.3;
-      opacity = 1;
-    } else if (isInspecting && otherSelected) {
+    if (isTakingOut && anySelected && !isSelected) {
       opacity = 0;
       scale = 0.3;
-    } else if (isTakingOut && isSelected) {
-      pos = dir.clone().multiplyScalar(explosion * 2 + 4.5);
-      scale = 1.5;
-      opacity = 1;
-    } else if (isTakingOut && otherSelected) {
-      opacity = 0.25;
     }
 
     // Smooth lerp
@@ -133,7 +122,7 @@ function PieceMesh({
     mat.transparent = finalOpacity < 0.99;
     mat.wireframe = showWireframe;
 
-    if (isSelected && !isInspecting) {
+    if (isSelected) {
       mat.emissive.setHex(0xffffff);
       mat.emissiveIntensity = 0.12;
     } else {
@@ -158,9 +147,20 @@ function PieceMesh({
       <mesh
         ref={meshRef}
         geometry={data.geometry}
-        onClick={(e: ThreeEvent<MouseEvent>) => {
+        onPointerDown={(e: ThreeEvent<PointerEvent>) => {
           e.stopPropagation();
-          onClick();
+          pointerDownPos.current = { x: e.clientX, y: e.clientY };
+        }}
+        onPointerUp={(e: ThreeEvent<PointerEvent>) => {
+          e.stopPropagation();
+          if (pointerDownPos.current) {
+            const dx = e.clientX - pointerDownPos.current.x;
+            const dy = e.clientY - pointerDownPos.current.y;
+            if (dx * dx + dy * dy < 25) {
+              onClick();
+            }
+            pointerDownPos.current = null;
+          }
         }}
         onPointerOver={(e: ThreeEvent<PointerEvent>) => {
           e.stopPropagation();
@@ -221,31 +221,60 @@ function CutPlaneViz({
   );
 }
 
+// ─── Deselect Sphere (click-without-drag on void) ───────────
+
+function DeselectSphere({ onDeselect }: { onDeselect: () => void }) {
+  const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
+
+  return (
+    <mesh
+      visible={false}
+      position={[0, 0, 0]}
+      onPointerDown={(e: ThreeEvent<PointerEvent>) => {
+        pointerDownPos.current = { x: e.clientX, y: e.clientY };
+      }}
+      onPointerUp={(e: ThreeEvent<PointerEvent>) => {
+        if (pointerDownPos.current) {
+          const dx = e.clientX - pointerDownPos.current.x;
+          const dy = e.clientY - pointerDownPos.current.y;
+          if (dx * dx + dy * dy < 25) {
+            onDeselect();
+          }
+          pointerDownPos.current = null;
+        }
+      }}
+    >
+      <sphereGeometry args={[20, 8, 8]} />
+      <meshBasicMaterial side={THREE.BackSide} />
+    </mesh>
+  );
+}
+
 // ─── Scene ───────────────────────────────────────────────────
 
 function Scene({
   pieces,
-  selectedPiece,
-  inspectMode,
+  selectedPieces,
   takeOutMode,
   explosion,
   showWireframe,
   showPlanes,
   activePlanes,
   globalOpacity,
-  onSelectPiece,
+  onTogglePiece,
+  onDeselectAll,
   onHoverPiece,
 }: {
   pieces: PieceMeshData[];
-  selectedPiece: number | null;
-  inspectMode: boolean;
+  selectedPieces: number[];
   takeOutMode: boolean;
   explosion: number;
   showWireframe: boolean;
   showPlanes: boolean;
   activePlanes: number[];
   globalOpacity: number;
-  onSelectPiece: (index: number | null) => void;
+  onTogglePiece: (index: number) => void;
+  onDeselectAll: () => void;
   onHoverPiece: (index: number | null) => void;
 }) {
   return (
@@ -305,28 +334,20 @@ function Scene({
         <PieceMesh
           key={piece.index}
           data={piece}
-          isSelected={selectedPiece === piece.index}
-          isInspecting={inspectMode && selectedPiece !== null}
-          isTakingOut={takeOutMode && selectedPiece !== null}
-          otherSelected={selectedPiece !== null && selectedPiece !== piece.index}
+          isSelected={selectedPieces.includes(piece.index)}
+          isTakingOut={takeOutMode && selectedPieces.length > 0}
+          anySelected={selectedPieces.length > 0}
           explosion={explosion}
           showWireframe={showWireframe}
           globalOpacity={globalOpacity}
-          onClick={() => onSelectPiece(selectedPiece === piece.index ? null : piece.index)}
+          onClick={() => onTogglePiece(piece.index)}
           onPointerOver={() => onHoverPiece(piece.index)}
           onPointerOut={() => onHoverPiece(null)}
         />
       ))}
 
       {/* Click on void to deselect */}
-      <mesh
-        visible={false}
-        position={[0, 0, 0]}
-        onClick={() => onSelectPiece(null)}
-      >
-        <sphereGeometry args={[20, 8, 8]} />
-        <meshBasicMaterial side={THREE.BackSide} />
-      </mesh>
+      <DeselectSphere onDeselect={onDeselectAll} />
     </>
   );
 }
@@ -338,6 +359,35 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
     <div className="text-[12px] tracking-[0.15em] uppercase opacity-70 font-semibold mb-2.5 text-[#2A9D8F]">
       {children}
     </div>
+  );
+}
+
+function CollapsibleSection({
+  title,
+  defaultOpen = true,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 w-full text-left text-[12px] tracking-[0.15em] uppercase opacity-70 font-semibold mb-2.5 text-[#2A9D8F] hover:opacity-100 transition-opacity"
+      >
+        <span
+          className="inline-block transition-transform duration-200 text-[10px]"
+          style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
+        >
+          ▶
+        </span>
+        {title}
+      </button>
+      {open && children}
+    </section>
   );
 }
 
@@ -377,9 +427,8 @@ function PlaneButton({
 export default function CubeSlicerApp() {
   const [activePlanes, setActivePlanes] = useState<number[]>([]);
   const [explosion, setExplosion] = useState(0);
-  const [selectedPiece, setSelectedPiece] = useState<number | null>(null);
+  const [selectedPieces, setSelectedPieces] = useState<number[]>([]);
   const [hoveredPiece, setHoveredPiece] = useState<number | null>(null);
-  const [inspectMode, setInspectMode] = useState(false);
   const [takeOutMode, setTakeOutMode] = useState(false);
   const [showWireframe, setShowWireframe] = useState(false);
   const [showPlanes, setShowPlanes] = useState(true);
@@ -401,8 +450,7 @@ export default function CubeSlicerApp() {
     setActivePlanes((prev) =>
       prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
     );
-    setSelectedPiece(null);
-    setInspectMode(false);
+    setSelectedPieces([]);
     setTakeOutMode(false);
   }, []);
 
@@ -410,17 +458,19 @@ export default function CubeSlicerApp() {
     setActivePlanes((prev) =>
       prev.length === 6 ? [] : [0, 1, 2, 3, 4, 5]
     );
-    setSelectedPiece(null);
-    setInspectMode(false);
+    setSelectedPieces([]);
     setTakeOutMode(false);
   }, []);
 
-  const handleSelectPiece = useCallback((idx: number | null) => {
-    setSelectedPiece(idx);
-    if (idx === null) {
-      setInspectMode(false);
-      setTakeOutMode(false);
-    }
+  const togglePieceSelection = useCallback((idx: number) => {
+    setSelectedPieces((prev) =>
+      prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]
+    );
+  }, []);
+
+  const deselectAll = useCallback(() => {
+    setSelectedPieces([]);
+    setTakeOutMode(false);
   }, []);
 
   return (
@@ -465,8 +515,7 @@ export default function CubeSlicerApp() {
         >
           <div className="flex-1 overflow-y-auto p-4 space-y-6">
             {/* Cube Vertex Reference */}
-            <section>
-              <SectionHeader>Vertex Reference</SectionHeader>
+            <CollapsibleSection title="Vertex Reference" defaultOpen={false}>
               <div className="flex justify-center">
                 <svg
                   viewBox="0 0 160 130"
@@ -505,11 +554,10 @@ export default function CubeSlicerApp() {
                 <span className="text-[#2A9D8F]">ABCD top</span>
                 <span className="text-[#E63946]">EFGH bottom</span>
               </div>
-            </section>
+            </CollapsibleSection>
 
             {/* Cutting Planes */}
-            <section>
-              <SectionHeader>Cutting Planes</SectionHeader>
+            <CollapsibleSection title="Cutting Planes">
               <div className="space-y-1">
                 {CUTTING_PLANES.map((plane) => (
                   <PlaneButton
@@ -526,11 +574,10 @@ export default function CubeSlicerApp() {
               >
                 {activePlanes.length === 6 ? "Reset All" : "Cut All 6"}
               </button>
-            </section>
+            </CollapsibleSection>
 
             {/* Explosion */}
-            <section>
-              <SectionHeader>Explosion</SectionHeader>
+            <CollapsibleSection title="Explosion">
               <div className="flex items-center gap-3">
                 <input
                   type="range"
@@ -544,11 +591,10 @@ export default function CubeSlicerApp() {
                   {Math.round(explosion * 100)}%
                 </span>
               </div>
-            </section>
+            </CollapsibleSection>
 
             {/* Transparency */}
-            <section>
-              <SectionHeader>Transparency</SectionHeader>
+            <CollapsibleSection title="Transparency">
               <div className="flex items-center gap-3">
                 <input
                   type="range"
@@ -562,68 +608,7 @@ export default function CubeSlicerApp() {
                   {Math.round(globalOpacity * 100)}%
                 </span>
               </div>
-            </section>
-
-            {/* Inspection */}
-            <section>
-              <SectionHeader>Inspection</SectionHeader>
-              {selectedPiece !== null ? (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-[#E63946]/10 text-[#E63946] text-xs">
-                    <span
-                      className="w-3 h-3 rounded-sm shrink-0"
-                      style={{
-                        backgroundColor:
-                          PIECE_COLORS[selectedPiece % PIECE_COLORS.length],
-                      }}
-                    />
-                    Piece #{selectedPiece + 1} selected
-                  </div>
-                  <div className="flex gap-1.5">
-                    <button
-                      onClick={() => {
-                        setInspectMode(!inspectMode);
-                        setTakeOutMode(false);
-                      }}
-                      className={`flex-1 py-2 rounded-md text-[11px] font-mono transition-all ${
-                        inspectMode
-                          ? "bg-[#2A9D8F]/20 text-[#2A9D8F] ring-1 ring-[#2A9D8F]/30"
-                          : "bg-white/[0.04] text-white/40 hover:bg-white/[0.07]"
-                      }`}
-                    >
-                      {inspectMode ? "✓ " : ""}Inspect
-                    </button>
-                    <button
-                      onClick={() => {
-                        setTakeOutMode(!takeOutMode);
-                        setInspectMode(false);
-                      }}
-                      className={`flex-1 py-2 rounded-md text-[11px] font-mono transition-all ${
-                        takeOutMode
-                          ? "bg-[#E63946]/20 text-[#E63946] ring-1 ring-[#E63946]/30"
-                          : "bg-white/[0.04] text-white/40 hover:bg-white/[0.07]"
-                      }`}
-                    >
-                      {takeOutMode ? "✓ " : ""}Take Out
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setSelectedPiece(null);
-                      setInspectMode(false);
-                      setTakeOutMode(false);
-                    }}
-                    className="w-full py-1.5 rounded-md border border-white/[0.06] text-white/30 text-[10px] hover:text-white/50 transition-all"
-                  >
-                    Deselect
-                  </button>
-                </div>
-              ) : (
-                <p className="text-[11px] opacity-25 px-1">
-                  Click a piece to select it
-                </p>
-              )}
-            </section>
+            </CollapsibleSection>
 
             {/* Piece List */}
             {slicedPieces.length > 1 && (
@@ -631,17 +616,44 @@ export default function CubeSlicerApp() {
                 <SectionHeader>
                   Pieces ({slicedPieces.length})
                 </SectionHeader>
-                <div className="space-y-0.5 max-h-48 overflow-y-auto pr-1">
+                <div className="flex gap-1.5 mb-2">
+                  <button
+                    onClick={() => setSelectedPieces(slicedPieces.map((p) => p.index))}
+                    className="flex-1 py-1.5 rounded-md text-[10px] font-mono bg-white/[0.04] text-white/40 hover:bg-white/[0.07] hover:text-white/60 transition-all"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    onClick={deselectAll}
+                    className={`flex-1 py-1.5 rounded-md text-[10px] font-mono transition-all ${
+                      selectedPieces.length > 0
+                        ? "bg-white/[0.06] text-white/50 hover:bg-white/[0.09]"
+                        : "bg-white/[0.02] text-white/20"
+                    }`}
+                    disabled={selectedPieces.length === 0}
+                  >
+                    Deselect All
+                  </button>
+                </div>
+                {selectedPieces.length > 0 && (
+                  <button
+                    onClick={() => setTakeOutMode(!takeOutMode)}
+                    className={`w-full mb-2 py-2 rounded-md text-[11px] font-mono transition-all ${
+                      takeOutMode
+                        ? "bg-[#E63946]/20 text-[#E63946] ring-1 ring-[#E63946]/30"
+                        : "bg-white/[0.04] text-white/40 hover:bg-white/[0.07]"
+                    }`}
+                  >
+                    {takeOutMode ? "✓ " : ""}Take Out ({selectedPieces.length})
+                  </button>
+                )}
+                <div className="space-y-0.5 overflow-y-auto pr-1">
                   {slicedPieces.map((piece) => (
                     <button
                       key={piece.index}
-                      onClick={() =>
-                        handleSelectPiece(
-                          piece.index === selectedPiece ? null : piece.index
-                        )
-                      }
+                      onClick={() => togglePieceSelection(piece.index)}
                       className={`flex items-center gap-2 w-full px-2.5 py-1.5 rounded text-[11px] transition-all ${
-                        piece.index === selectedPiece
+                        selectedPieces.includes(piece.index)
                           ? "bg-white/[0.08] text-white"
                           : piece.index === hoveredPiece
                           ? "bg-white/[0.04] text-white/60"
@@ -660,8 +672,7 @@ export default function CubeSlicerApp() {
             )}
 
             {/* View Options */}
-            <section>
-              <SectionHeader>View</SectionHeader>
+            <CollapsibleSection title="View">
               <div className="space-y-1">
                 <button
                   onClick={() => setShowWireframe(!showWireframe)}
@@ -684,7 +695,7 @@ export default function CubeSlicerApp() {
                   {showPlanes ? "✓ " : "  "}Show Planes
                 </button>
               </div>
-            </section>
+            </CollapsibleSection>
           </div>
 
           {/* Footer */}
@@ -708,15 +719,15 @@ export default function CubeSlicerApp() {
           >
             <Scene
               pieces={slicedPieces}
-              selectedPiece={selectedPiece}
-              inspectMode={inspectMode}
+              selectedPieces={selectedPieces}
               takeOutMode={takeOutMode}
               explosion={explosion}
               showWireframe={showWireframe}
               showPlanes={showPlanes}
               activePlanes={activePlanes}
               globalOpacity={globalOpacity}
-              onSelectPiece={handleSelectPiece}
+              onTogglePiece={togglePieceSelection}
+              onDeselectAll={deselectAll}
               onHoverPiece={setHoveredPiece}
             />
           </Canvas>

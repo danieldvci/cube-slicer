@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0e0e1e"/>
+      <stop offset="100%" stop-color="#06060e"/>
+    </linearGradient>
+    <linearGradient id="topFace" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2A9D8F"/>
+      <stop offset="100%" stop-color="#1f7a6f"/>
+    </linearGradient>
+    <linearGradient id="leftFace" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1a6b60"/>
+      <stop offset="100%" stop-color="#155550"/>
+    </linearGradient>
+    <linearGradient id="rightFace" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0%" stop-color="#227d72"/>
+      <stop offset="100%" stop-color="#1a6b60"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+
+  <!-- 3D Cube - isometric view -->
+  <!-- Top face -->
+  <polygon points="256,100 406,175 256,250 106,175" fill="url(#topFace)" opacity="0.95"/>
+
+  <!-- Left face -->
+  <polygon points="106,175 256,250 256,400 106,325" fill="url(#leftFace)" opacity="0.95"/>
+
+  <!-- Right face -->
+  <polygon points="256,250 406,175 406,325 256,400" fill="url(#rightFace)" opacity="0.95"/>
+
+  <!-- Cutting plane slash (diagonal line through cube) -->
+  <line x1="140" y1="140" x2="370" y2="370" stroke="#E63946" stroke-width="4" opacity="0.8" stroke-dasharray="12,6"/>
+  <line x1="370" y1="140" x2="140" y2="370" stroke="#E9C46A" stroke-width="4" opacity="0.6" stroke-dasharray="12,6"/>
+
+  <!-- Edges highlight -->
+  <polygon points="256,100 406,175 256,250 106,175" fill="none" stroke="#2A9D8F" stroke-width="2.5" opacity="0.6"/>
+  <line x1="106" y1="175" x2="106" y2="325" stroke="#2A9D8F" stroke-width="2.5" opacity="0.4"/>
+  <line x1="406" y1="175" x2="406" y2="325" stroke="#2A9D8F" stroke-width="2.5" opacity="0.4"/>
+  <line x1="256" y1="250" x2="256" y2="400" stroke="#2A9D8F" stroke-width="2.5" opacity="0.4"/>
+  <polygon points="106,325 256,400 406,325" fill="none" stroke="#2A9D8F" stroke-width="2" opacity="0.3"/>
+</svg>

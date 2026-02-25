@@ -37,9 +37,9 @@ export interface CuttingPlane {
 
 export const CUTTING_PLANES: CuttingPlane[] = [
   { id: 0, label: "AB–GH", desc: "y = z",  normal: new THREE.Vector3(0, 1, -1),  w: 0 },
-  { id: 1, label: "BF–DH", desc: "x = -z", normal: new THREE.Vector3(1, 0, 1),   w: 0 },
+  { id: 1, label: "AE–CG", desc: "x = -z", normal: new THREE.Vector3(1, 0, 1),   w: 0 },
   { id: 2, label: "EF–CD", desc: "y = -z", normal: new THREE.Vector3(0, 1, 1),   w: 0 },
-  { id: 3, label: "AE–CG", desc: "x = z",  normal: new THREE.Vector3(1, 0, -1),  w: 0 },
+  { id: 3, label: "BF–DH", desc: "x = z",  normal: new THREE.Vector3(1, 0, -1),  w: 0 },
   { id: 4, label: "AD–FG", desc: "x = -y", normal: new THREE.Vector3(1, 1, 0),   w: 0 },
   { id: 5, label: "BC–EH", desc: "x = y",  normal: new THREE.Vector3(1, -1, 0),  w: 0 },
 ];

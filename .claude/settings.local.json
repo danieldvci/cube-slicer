@@ -3,7 +3,8 @@
     "allow": [
       "Bash(tail:*)",
       "Bash(netstat:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(npx:*)"
     ]
   }
 }
