@@ -13,7 +13,6 @@ import {
   computeCongruenceGroups,
   type SlicedPiece,
   type CuttingPlane,
-  type PieceMetrics,
 } from "@/lib/geometry";
 import type { CSGPolygon } from "@/lib/csg";
 
@@ -497,12 +496,13 @@ export default function CubeSlicerApp() {
   const [explosion, setExplosion] = useState(0);
   const [selectedPieces, setSelectedPieces] = useState<number[]>([]);
   const [hoveredPiece, setHoveredPiece] = useState<number | null>(null);
-  const [takeOutMode, setTakeOutMode] = useState(false);
+  const [takeOutMode, setTakeOutMode] = useState(true);
   const [showWireframe, setShowWireframe] = useState(false);
   const [showPlanes, setShowPlanes] = useState(false);
-  const [showPieceNumbers, setShowPieceNumbers] = useState(true);
+  const [showPieceNumbers, setShowPieceNumbers] = useState(false);
   const [globalOpacity, setGlobalOpacity] = useState(1);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [expandedPieces, setExpandedPieces] = useState<Set<number>>(new Set());
 
   // Compute pieces (pure, memoized)
   const slicedPieces: PieceMeshData[] = useMemo(() => {
@@ -517,14 +517,6 @@ export default function CubeSlicerApp() {
       groupId: groupIds[i],
     }));
   }, [activePlanes]);
-
-  // Piece inspector metrics (only when 1 piece selected)
-  const inspectedMetrics: PieceMetrics | null = useMemo(() => {
-    if (selectedPieces.length !== 1) return null;
-    const piece = slicedPieces[selectedPieces[0]];
-    if (!piece || piece.polygons.length === 0) return null;
-    return computePieceMetrics(piece.polygons);
-  }, [selectedPieces, slicedPieces]);
 
   // Group info: groupId -> { indices, label }
   const groupInfo = useMemo(() => {
@@ -760,91 +752,61 @@ export default function CubeSlicerApp() {
                   </button>
                 )}
                 <div className="space-y-0.5 overflow-y-auto pr-1">
-                  {slicedPieces.map((piece) => (
-                    <button
-                      key={piece.index}
-                      onClick={() => togglePieceSelection(piece.index)}
-                      className={`flex items-center gap-2 w-full px-2.5 py-1.5 rounded text-[11px] transition-all ${
-                        selectedPieces.includes(piece.index)
-                          ? "bg-white/[0.08] text-white"
-                          : piece.index === hoveredPiece
-                          ? "bg-white/[0.04] text-white/60"
-                          : "text-white/35 hover:text-white/50"
-                      }`}
-                    >
-                      <span
-                        className="w-2.5 h-2.5 rounded-sm shrink-0"
-                        style={{ backgroundColor: piece.color }}
-                      />
-                      <span className="flex-1 text-left">
-                        Piece {piece.index + 1}
-                      </span>
-                    </button>
-                  ))}
+                  {slicedPieces.map((piece) => {
+                    const isExpanded = expandedPieces.has(piece.index);
+                    return (
+                      <div key={piece.index}>
+                        <div className="flex items-center">
+                          <button
+                            onClick={() => togglePieceSelection(piece.index)}
+                            className={`flex items-center gap-2 flex-1 min-w-0 px-2.5 py-1.5 rounded-l text-[11px] transition-all ${
+                              selectedPieces.includes(piece.index)
+                                ? "bg-white/[0.08] text-white"
+                                : piece.index === hoveredPiece
+                                ? "bg-white/[0.04] text-white/60"
+                                : "text-white/35 hover:text-white/50"
+                            }`}
+                          >
+                            <span
+                              className="w-2.5 h-2.5 rounded-sm shrink-0"
+                              style={{ backgroundColor: piece.color }}
+                            />
+                            <span className="flex-1 text-left">
+                              Piece {piece.index + 1}
+                            </span>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedPieces(prev => {
+                                const next = new Set(prev);
+                                if (isExpanded) next.delete(piece.index);
+                                else next.add(piece.index);
+                                return next;
+                              });
+                            }}
+                            className="px-1.5 py-1.5 rounded-r text-[10px] text-white/30 hover:text-white/60 transition-all"
+                          >
+                            {isExpanded ? "▼" : "▶"}
+                          </button>
+                        </div>
+                        {isExpanded && piece.polygons.length > 0 && (() => {
+                          const m = computePieceMetrics(piece.polygons);
+                          return (
+                            <div className="ml-5 mr-1 mt-1 mb-2 space-y-1">
+                              <div className="flex gap-1.5">
+                                <MetricBox label="Faces" value={m.faceCount} />
+                                <MetricBox label="Area" value={m.surfaceArea} />
+                                <MetricBox label="Volume" value={m.volume} />
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
-            )}
-
-            {/* Piece Inspector */}
-            {inspectedMetrics && (
-              <CollapsibleSection title="Piece Inspector">
-                <div className="space-y-3 text-[11px]">
-                  {/* Counts row */}
-                  <div className="flex gap-2">
-                    <MetricBox label="Vertices" value={inspectedMetrics.vertexCount} />
-                    <MetricBox label="Edges" value={inspectedMetrics.edgeCount} />
-                    <MetricBox label="Faces" value={inspectedMetrics.faceCount} />
-                  </div>
-                  {/* Surface area & volume */}
-                  <div className="flex gap-2">
-                    <MetricBox label="Surface Area" value={inspectedMetrics.surfaceArea} />
-                    <MetricBox label="Volume" value={inspectedMetrics.volume} />
-                  </div>
-                  {/* Bounding box */}
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider opacity-50 mb-1">
-                      Bounding Box
-                    </div>
-                    <div className="flex gap-2">
-                      <MetricBox label="W" value={inspectedMetrics.boundingBox.x} />
-                      <MetricBox label="H" value={inspectedMetrics.boundingBox.y} />
-                      <MetricBox label="D" value={inspectedMetrics.boundingBox.z} />
-                    </div>
-                  </div>
-                  {/* Edge lengths */}
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider opacity-50 mb-1">
-                      Edge Lengths ({inspectedMetrics.edgeLengths.length})
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {inspectedMetrics.edgeLengths.map((l, i) => (
-                        <span
-                          key={i}
-                          className="px-1.5 py-0.5 rounded bg-white/[0.05] text-white/60 text-[10px] tabular-nums"
-                        >
-                          {l.toFixed(4)}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  {/* Face areas */}
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider opacity-50 mb-1">
-                      Face Areas ({inspectedMetrics.faceAreas.length})
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {inspectedMetrics.faceAreas.map((a, i) => (
-                        <span
-                          key={i}
-                          className="px-1.5 py-0.5 rounded bg-white/[0.05] text-white/60 text-[10px] tabular-nums"
-                        >
-                          {a.toFixed(4)}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </CollapsibleSection>
             )}
 
             {/* View Options */}
