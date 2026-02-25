@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { Canvas, useFrame, useThree, ThreeEvent } from "@react-three/fiber";
-import { OrbitControls, Environment, PerspectiveCamera, Html } from "@react-three/drei";
+import { OrbitControls, Environment, PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
 import {
   CUBE_VERTICES,
@@ -22,36 +22,42 @@ interface PieceMeshData {
   index: number;
 }
 
-// ─── Vertex Label ────────────────────────────────────────────
+// ─── Vertex Label (pure canvas sprite, no font files) ────────
 
 function VertexLabel({ name, position }: { name: string; position: THREE.Vector3 }) {
   const labelPos = position.clone().multiplyScalar(1.3);
 
+  const texture = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext("2d")!;
+
+    ctx.beginPath();
+    ctx.arc(64, 64, 48, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(10, 10, 15, 0.85)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 56px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(name, 64, 68);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    return tex;
+  }, [name]);
+
   return (
-    <group position={labelPos}>
-      <mesh>
-        <sphereGeometry args={[0.06, 16, 16]} />
-        <meshBasicMaterial color="#ffffff" opacity={0.6} transparent />
-      </mesh>
-      <Html
-        center
-        distanceFactor={8}
-        style={{
-          color: "#fff",
-          fontSize: "14px",
-          fontWeight: "bold",
-          fontFamily: "monospace",
-          textShadow: "0 0 4px #000, 0 0 8px #000",
-          pointerEvents: "none",
-          userSelect: "none",
-        }}
-      >
-        {name}
-      </Html>
-    </group>
+    <sprite position={labelPos} scale={[0.45, 0.45, 0.45]}>
+      <spriteMaterial map={texture} transparent depthTest={false} />
+    </sprite>
   );
 }
-
 // ─── Piece Mesh ──────────────────────────────────────────────
 
 function PieceMesh({
