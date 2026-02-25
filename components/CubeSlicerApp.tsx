@@ -335,7 +335,7 @@ function Scene({
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-[10px] tracking-[0.2em] uppercase opacity-40 font-semibold mb-2.5">
+    <div className="text-[12px] tracking-[0.15em] uppercase opacity-70 font-semibold mb-2.5 text-[#2A9D8F]">
       {children}
     </div>
   );
@@ -360,7 +360,7 @@ function PlaneButton({
       }`}
     >
       <span className="font-semibold">{plane.label}</span>
-      <span className="text-[10px] opacity-60">{plane.desc}</span>
+      <span className="text-[11px] opacity-70">{plane.desc}</span>
       <span
         className={`w-2 h-2 rounded-full transition-all duration-300 ${
           active
@@ -464,6 +464,49 @@ export default function CubeSlicerApp() {
           } border-r border-white/[0.06] bg-[#0a0a15]/95 backdrop-blur-xl flex flex-col z-10 transition-all duration-300`}
         >
           <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            {/* Cube Vertex Reference */}
+            <section>
+              <SectionHeader>Vertex Reference</SectionHeader>
+              <div className="flex justify-center">
+                <svg
+                  viewBox="0 0 160 130"
+                  className="w-full max-w-[200px]"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  {/* Back face edges */}
+                  <line x1="60" y1="15" x2="140" y2="15" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+                  <line x1="140" y1="15" x2="140" y2="75" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+                  <line x1="60" y1="15" x2="60" y2="75" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+                  <line x1="60" y1="75" x2="140" y2="75" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+                  {/* Connecting edges (back to front) */}
+                  <line x1="60" y1="15" x2="20" y2="45" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+                  <line x1="140" y1="15" x2="100" y2="45" stroke="rgba(255,255,255,0.25)" strokeWidth="1" />
+                  <line x1="60" y1="75" x2="20" y2="105" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+                  <line x1="140" y1="75" x2="100" y2="105" stroke="rgba(255,255,255,0.25)" strokeWidth="1" />
+                  {/* Front face edges */}
+                  <line x1="20" y1="45" x2="100" y2="45" stroke="rgba(255,255,255,0.35)" strokeWidth="1.5" />
+                  <line x1="100" y1="45" x2="100" y2="105" stroke="rgba(255,255,255,0.35)" strokeWidth="1.5" />
+                  <line x1="20" y1="45" x2="20" y2="105" stroke="rgba(255,255,255,0.35)" strokeWidth="1.5" />
+                  <line x1="20" y1="105" x2="100" y2="105" stroke="rgba(255,255,255,0.35)" strokeWidth="1.5" />
+                  {/* Top face ABCD (y=1): A front-left, B front-right, C back-right, D back-left */}
+                  <text x="15" y="42" fill="#2A9D8F" fontSize="13" fontFamily="monospace" fontWeight="bold" textAnchor="middle">A</text>
+                  <text x="105" y="42" fill="#2A9D8F" fontSize="13" fontFamily="monospace" fontWeight="bold" textAnchor="middle">B</text>
+                  <text x="145" y="13" fill="rgba(42,157,143,0.6)" fontSize="12" fontFamily="monospace" fontWeight="bold" textAnchor="middle">C</text>
+                  <text x="55" y="13" fill="rgba(42,157,143,0.6)" fontSize="12" fontFamily="monospace" fontWeight="bold" textAnchor="middle">D</text>
+                  {/* Bottom face EFGH (y=-1): E front-left, F front-right, G back-right, H back-left */}
+                  <text x="15" y="120" fill="#E63946" fontSize="13" fontFamily="monospace" fontWeight="bold" textAnchor="middle">E</text>
+                  <text x="105" y="120" fill="#E63946" fontSize="13" fontFamily="monospace" fontWeight="bold" textAnchor="middle">F</text>
+                  <text x="145" y="80" fill="rgba(230,57,70,0.7)" fontSize="12" fontFamily="monospace" fontWeight="bold" textAnchor="middle">G</text>
+                  <text x="55" y="80" fill="rgba(230,57,70,0.7)" fontSize="12" fontFamily="monospace" fontWeight="bold" textAnchor="middle">H</text>
+                </svg>
+              </div>
+              <div className="flex justify-center gap-4 mt-1.5 text-[10px] opacity-50">
+                <span className="text-[#2A9D8F]">ABCD top</span>
+                <span className="text-[#E63946]">EFGH bottom</span>
+              </div>
+            </section>
+
             {/* Cutting Planes */}
             <section>
               <SectionHeader>Cutting Planes</SectionHeader>
@@ -497,7 +540,7 @@ export default function CubeSlicerApp() {
                   onChange={(e) => setExplosion(Number(e.target.value) / 100)}
                   className="flex-1"
                 />
-                <span className="text-[11px] opacity-40 tabular-nums w-8 text-right">
+                <span className="text-[13px] opacity-70 font-medium tabular-nums w-10 text-right">
                   {Math.round(explosion * 100)}%
                 </span>
               </div>
@@ -515,7 +558,7 @@ export default function CubeSlicerApp() {
                   onChange={(e) => setGlobalOpacity(Number(e.target.value) / 100)}
                   className="flex-1"
                 />
-                <span className="text-[11px] opacity-40 tabular-nums w-8 text-right">
+                <span className="text-[13px] opacity-70 font-medium tabular-nums w-10 text-right">
                   {Math.round(globalOpacity * 100)}%
                 </span>
               </div>
@@ -622,7 +665,7 @@ export default function CubeSlicerApp() {
               <div className="space-y-1">
                 <button
                   onClick={() => setShowWireframe(!showWireframe)}
-                  className={`w-full text-left px-3 py-2 rounded-md text-[11px] transition-all ${
+                  className={`w-full text-left px-3 py-2 rounded-md text-[12px] transition-all ${
                     showWireframe
                       ? "bg-white/[0.07] text-white"
                       : "bg-white/[0.02] text-white/35 hover:text-white/50"
@@ -632,7 +675,7 @@ export default function CubeSlicerApp() {
                 </button>
                 <button
                   onClick={() => setShowPlanes(!showPlanes)}
-                  className={`w-full text-left px-3 py-2 rounded-md text-[11px] transition-all ${
+                  className={`w-full text-left px-3 py-2 rounded-md text-[12px] transition-all ${
                     showPlanes
                       ? "bg-white/[0.07] text-white"
                       : "bg-white/[0.02] text-white/35 hover:text-white/50"
@@ -645,7 +688,7 @@ export default function CubeSlicerApp() {
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-white/[0.04] text-[10px] opacity-25 space-y-1">
+          <div className="p-4 border-t border-white/[0.04] text-[11px] opacity-40 space-y-1">
             <div>🖱 Drag to orbit</div>
             <div>🔍 Scroll to zoom</div>
             <div>👆 Click piece to select</div>

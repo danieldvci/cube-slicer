@@ -9,16 +9,16 @@ import { CSG } from "./csg";
 
 // ─── Cube Vertices ───────────────────────────────────────────
 // Cube from (-1,-1,-1) to (1,1,1)
-// Top face (z=1):  A(-1,1,1), B(1,1,1), C(1,-1,1), D(-1,-1,1)
-// Bottom face (z=-1): E(-1,1,-1), F(1,1,-1), G(1,-1,-1), H(-1,-1,-1)
+// Top face (y=1):    A(-1,1,1), B(1,1,1), C(1,1,-1), D(-1,1,-1)
+// Bottom face (y=-1): E(-1,-1,1), F(1,-1,1), G(1,-1,-1), H(-1,-1,-1)
 
 export const CUBE_VERTICES: Record<string, THREE.Vector3> = {
   A: new THREE.Vector3(-1, 1, 1),
   B: new THREE.Vector3(1, 1, 1),
-  C: new THREE.Vector3(1, -1, 1),
-  D: new THREE.Vector3(-1, -1, 1),
-  E: new THREE.Vector3(-1, 1, -1),
-  F: new THREE.Vector3(1, 1, -1),
+  C: new THREE.Vector3(1, 1, -1),
+  D: new THREE.Vector3(-1, 1, -1),
+  E: new THREE.Vector3(-1, -1, 1),
+  F: new THREE.Vector3(1, -1, 1),
   G: new THREE.Vector3(1, -1, -1),
   H: new THREE.Vector3(-1, -1, -1),
 };
@@ -37,11 +37,11 @@ export interface CuttingPlane {
 
 export const CUTTING_PLANES: CuttingPlane[] = [
   { id: 0, label: "AB–GH", desc: "y = z",  normal: new THREE.Vector3(0, 1, -1),  w: 0 },
-  { id: 1, label: "BC–HE", desc: "x = -z", normal: new THREE.Vector3(1, 0, 1),   w: 0 },
-  { id: 2, label: "CD–EF", desc: "y = -z", normal: new THREE.Vector3(0, 1, 1),   w: 0 },
-  { id: 3, label: "DA–FG", desc: "x = z",  normal: new THREE.Vector3(1, 0, -1),  w: 0 },
-  { id: 4, label: "AE–CG", desc: "x = -y", normal: new THREE.Vector3(1, 1, 0),   w: 0 },
-  { id: 5, label: "BF–DH", desc: "x = y",  normal: new THREE.Vector3(1, -1, 0),  w: 0 },
+  { id: 1, label: "BF–DH", desc: "x = -z", normal: new THREE.Vector3(1, 0, 1),   w: 0 },
+  { id: 2, label: "EF–CD", desc: "y = -z", normal: new THREE.Vector3(0, 1, 1),   w: 0 },
+  { id: 3, label: "AE–CG", desc: "x = z",  normal: new THREE.Vector3(1, 0, -1),  w: 0 },
+  { id: 4, label: "AD–FG", desc: "x = -y", normal: new THREE.Vector3(1, 1, 0),   w: 0 },
+  { id: 5, label: "BC–EH", desc: "x = y",  normal: new THREE.Vector3(1, -1, 0),  w: 0 },
 ];
 
 // ─── Piece Result ────────────────────────────────────────────
