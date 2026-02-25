@@ -6,11 +6,6 @@ export const metadata: Metadata = {
   description:
     "Explore the spatial subdivision of a cube with interactive diagonal plane cuts. A 3D geometry tool for visualizing CSG operations.",
   manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Cube Slicer",
-  },
 };
 
 export const viewport: Viewport = {
@@ -29,6 +24,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <meta name="mobile-web-app-capable" content="yes" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body className="antialiased">

@@ -39,7 +39,6 @@ function VertexLabel({ name, position }: { name: string; position: THREE.Vector3
         color="#ffffff"
         anchorX="center"
         anchorY="middle"
-        font="/fonts/JetBrainsMono-Bold.woff"
         outlineWidth={0.02}
         outlineColor="#000000"
         depthOffset={-1}
